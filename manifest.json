@@ -1,0 +1,21 @@
+{
+  "name": "Booth 40 BLO Helper App",
+  "short_name": "Booth 40 BLO",
+  "description": "Offline voter roll helper app for Booth 40",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#000080",
+  "theme_color": "#FF9933",
+  "icons": [
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["utilities"],
+  "lang": "en",
+  "dir": "ltr"
+}

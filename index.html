@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0">
+<title>Booth 40 BLO Helper App</title>
+<meta name="description" content="Offline voter roll helper app for Booth 40">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#FF9933">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Booth 40 BLO">
+<link rel="apple-touch-icon" href="icon-512.png">
+<style>
+:root{--sf:#FF9933;--wh:#FFF;--gn:#138808;--nv:#000080;--bg:#f0f2f5;--card:#fff;--tx:#333;--mt:#888;--bl:#0066cc;--rd:#dc3545;--or:#e67e22;--gr:#6c757d;--wa:#25D366}
+*{box-sizing:border-box;margin:0}
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:var(--bg);color:var(--tx)}
+header{background:linear-gradient(to right,var(--sf),var(--wh),var(--gn));padding:14px 0;text-align:center;border-bottom:3px solid var(--nv);box-shadow:0 2px 8px rgba(0,0,0,.1);position:sticky;top:0;z-index:100}
+header h1{color:var(--nv);font-size:22px;letter-spacing:2px}
+header p{color:var(--tx);font-size:12px;font-weight:bold;margin-top:2px}
+.container{max-width:1000px;margin:0 auto;padding:12px}
+/* Toolbar - search + menu */
+.tb{display:flex;gap:8px;margin-bottom:10px;align-items:center}
+.tb .sw{flex:1;position:relative}
+.tb input[type=text]{width:100%;padding:10px 16px;font-size:14px;border:2px solid #ddd;border-radius:25px;outline:none}
+.tb input:focus{border-color:var(--sf);box-shadow:0 2px 8px rgba(255,153,51,.15)}
+.menu-btn{width:42px;height:42px;border-radius:50%;border:none;background:var(--nv);color:#fff;font-size:20px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.2);flex-shrink:0;transition:all .2s}
+.menu-btn:active{transform:scale(.9)}
+/* Slide panel */
+.panel-bg{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.4);z-index:500}
+.panel-bg.show{display:block}
+.panel{position:fixed;top:0;right:-280px;width:270px;height:100%;background:#fff;z-index:501;box-shadow:-4px 0 20px rgba(0,0,0,.15);transition:right .3s;overflow-y:auto;padding:20px}
+.panel.show{right:0}
+.panel h3{color:var(--nv);font-size:15px;margin:0 0 12px;padding-bottom:8px;border-bottom:2px solid var(--sf);display:flex;align-items:center;gap:6px}
+.panel label{display:block;font-size:11px;font-weight:bold;color:var(--mt);margin:12px 0 4px}
+.panel select{width:100%;padding:10px;border:1px solid #e0e0e0;border-radius:8px;font-size:13px;background:#fafafa;margin-bottom:4px}
+.panel select:focus{outline:none;border-color:var(--sf)}
+.panel .pbtn{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.panel .pb{flex:1;min-width:70px;padding:12px 8px;border:none;border-radius:10px;color:#fff;font-weight:bold;font-size:12px;cursor:pointer;text-align:center;display:flex;flex-direction:column;align-items:center;gap:4px}
+.panel .pb span{font-size:20px}
+.panel .pb:active{opacity:.7}
+.p-view{background:var(--nv)}.p-add{background:var(--sf)}.p-exp{background:var(--gn)}.p-imp{background:var(--bl)}
+.panel .close-p{position:absolute;top:12px;right:12px;width:32px;height:32px;border:none;background:#f0f0f0;border-radius:50%;font-size:18px;cursor:pointer;color:#666}
+/* Scroll buttons */
+.scroll-btns{position:fixed;right:14px;bottom:80px;display:flex;flex-direction:column;gap:8px;z-index:200}
+.scroll-b{width:40px;height:40px;border-radius:50%;border:none;background:rgba(0,0,128,.8);color:#fff;font-size:18px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.2);transition:all .2s;display:flex;align-items:center;justify-content:center}
+.scroll-b:hover{background:var(--nv);transform:scale(1.1)}
+.scroll-b:active{transform:scale(.9)}
+.btn{padding:8px 12px;border:none;border-radius:8px;color:#fff;font-weight:bold;font-size:11px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.btn:active{opacity:.7}
+/* Filter */
+.fb{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px}
+.fc{padding:5px 10px;border-radius:16px;border:2px solid #e0e0e0;background:#fff;font-size:11px;cursor:pointer;font-weight:bold;transition:all .2s}
+.fc.on{border-color:var(--nv);background:var(--nv);color:#fff}
+.fc .ct{background:rgba(0,0,0,.1);padding:0 5px;border-radius:8px;margin-left:3px;font-size:10px}
+.fc.on .ct{background:rgba(255,255,255,.3)}
+.ri{text-align:center;margin-bottom:10px;font-size:13px;color:var(--mt)}
+/* ── MINIMAL VIEW ── */
+.list{display:none;flex-direction:column;gap:2px}
+.list.show{display:flex}
+.lrow{display:flex;align-items:center;background:#fff;padding:10px 14px;border-radius:8px;cursor:pointer;border-left:4px solid var(--nv);transition:all .2s;gap:10px}
+.lrow:hover{background:#f8f8ff}
+.lrow.dead{border-left-color:var(--rd);opacity:.6}.lrow.shifted{border-left-color:var(--or);opacity:.7}.lrow.removed{border-left-color:var(--gr);opacity:.5}
+.lrow .sn{font-weight:bold;color:var(--nv);min-width:35px;font-size:13px}
+.lrow .nm{flex:1;font-size:14px;font-weight:600;display:flex;flex-direction:column;justify-content:center}
+.lrow .hn{color:var(--mt);font-size:11px;text-align:left;font-weight:normal;margin-top:2px}
+.lrow .mbg{font-size:10px;padding:2px 6px;border-radius:4px;color:#fff;margin-left:6px}
+.lrow .exp-btn{width:28px;height:28px;border-radius:50%;border:2px solid var(--nv);background:none;color:var(--nv);font-size:16px;font-weight:bold;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.lrow .exp-btn:hover{background:var(--nv);color:#fff}
+.exp-card{display:none;background:#fff;border-radius:0 0 8px 8px;margin-top:-2px;padding:15px;border-left:4px solid var(--sf);animation:slideDown .2s}
+.exp-card.show{display:block}
+@keyframes slideDown{from{opacity:0;max-height:0}to{opacity:1;max-height:500px}}
+/* ── DETAILED VIEW ── */
+.grid{display:none;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px}
+.grid.show{display:grid}
+.card{background:var(--card);border-radius:10px;padding:14px;box-shadow:0 2px 6px rgba(0,0,0,.06);position:relative;border-top:3px solid var(--nv);cursor:pointer;transition:all .2s}
+.card:hover{box-shadow:0 4px 12px rgba(0,0,0,.12)}
+.card.dead{border-top-color:var(--rd);opacity:.7}.card.shifted{border-top-color:var(--or);opacity:.8}.card.removed{border-top-color:var(--gr);opacity:.6}.card.deleted{border-top-color:var(--rd);opacity:.7}
+.card .wm{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-30deg);font-size:30px;font-weight:bold;color:rgba(255,0,0,.1);letter-spacing:4px;pointer-events:none;white-space:nowrap}
+.card .hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px}
+.card .hdr h2{font-size:16px;color:var(--nv);flex:1}
+.card .hdr h3{font-size:12px;color:var(--mt);font-weight:normal;margin-top:1px}
+.card .sn{background:#eef;color:var(--nv);padding:2px 7px;border-radius:12px;font-size:11px;font-weight:bold}
+.card .sb{padding:2px 6px;border-radius:3px;font-size:9px;font-weight:bold;color:#fff;margin-left:5px}
+.card .info{font-size:12px;color:var(--mt);margin-bottom:8px;line-height:1.6}
+.card .info b{color:var(--tx);font-weight:600}
+.card .id{display:inline-block;background:var(--sf);color:#fff;padding:2px 8px;border-radius:3px;font-weight:bold;font-size:12px}
+/* Quick action icons on card */
+.qb{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+.qi{width:36px;height:36px;border-radius:50%;border:none;display:flex;align-items:center;justify-content:center;font-size:16px;cursor:pointer;transition:all .2s;text-decoration:none}
+.qi.on{opacity:1;box-shadow:0 2px 6px rgba(0,0,0,.15)}.qi.off{opacity:.25;cursor:default;pointer-events:none}
+.qi-call{background:#e8f5e9;color:var(--gn)}.qi-call.on:hover{background:var(--gn);color:#fff}
+.qi-wa{background:#e8f8ee;color:var(--wa)}.qi-wa.on:hover{background:var(--wa);color:#fff}
+.qi-gps{background:#fff3e0;color:var(--or)}.qi-gps.on:hover{background:var(--or);color:#fff}
+.qi-map{background:#e3f2fd;color:var(--bl)}.qi-map.on:hover{background:var(--bl);color:#fff}
+.qi-edit{background:#f3e5f5;color:#9c27b0}.qi-edit.on:hover{background:#9c27b0;color:#fff}
+/* Expanded detail panel */
+.det{display:none;margin-top:12px;padding-top:12px;border-top:1px dashed #e0e0e0;animation:slideDown .25s}
+.det.show{display:block}
+.det input,.det select{width:100%;padding:8px 10px;margin-bottom:6px;border:1px solid #e0e0e0;border-radius:6px;font-size:13px;background:#fafafa}
+.det input:focus,.det select:focus{outline:none;border-color:var(--sf);background:#fff}
+.det .irow{display:flex;gap:5px;margin-bottom:6px}
+.det .irow input{flex:1}
+.det .fbtn{background:var(--sf);color:#fff;border:none;border-radius:6px;padding:8px 12px;font-size:12px;font-weight:bold;cursor:pointer}
+.det .act{display:flex;gap:8px;margin-top:8px}
+.det .act a,.det .act button{flex:1;padding:10px;border:none;border-radius:6px;color:#fff;font-weight:bold;font-size:12px;cursor:pointer;text-align:center;text-decoration:none;display:flex;align-items:center;justify-content:center;gap:4px}
+.det .ac{background:var(--gn)}.det .aw{background:var(--wa)}.det .am{background:var(--bl)}
+.det .ac.off,.det .aw.off{background:#ccc;pointer-events:none}.det .am.off{background:#ccc;pointer-events:none}
+.det .sv{background:var(--nv);color:#fff;border:none;padding:10px;border-radius:6px;cursor:pointer;font-size:13px;width:100%;font-weight:bold;margin-top:8px}
+.det .sv:active{background:var(--gn)}
+.det .phh{font-size:10px;color:var(--rd);margin-bottom:4px;display:none}
+.det .loc-st{font-size:10px;color:var(--gn);margin-bottom:4px;display:none}
+.det .loc-st.on{display:block}
+/* Modal */
+.mo-bg{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center}
+.mo-bg.show{display:flex}
+.mo{background:#fff;border-radius:12px;padding:24px;max-width:420px;width:90%;max-height:85vh;overflow-y:auto;box-shadow:0 10px 40px rgba(0,0,0,.3)}
+.mo h2{color:var(--nv);font-size:18px;margin-bottom:12px}
+.mo label{display:block;font-size:11px;font-weight:bold;color:var(--mt);margin:8px 0 2px}
+.mo input,.mo select{width:100%;padding:9px;border:1px solid #ddd;border-radius:6px;font-size:13px}
+.mo input:focus,.mo select:focus{outline:none;border-color:var(--sf)}
+.mo .mb{display:flex;gap:10px;margin-top:16px}
+.mo .mb button{flex:1;padding:11px;border:none;border-radius:8px;font-weight:bold;font-size:13px;cursor:pointer}
+.mo .ms{background:var(--nv);color:#fff}.mo .mc{background:#eee;color:#333}
+.toast{position:fixed;bottom:25px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:10px 22px;border-radius:20px;font-size:13px;z-index:2000;display:none;box-shadow:0 4px 12px rgba(0,0,0,.3)}
+.toast.show{display:block;animation:fadeUp .3s}
+@keyframes fadeUp{from{opacity:0;transform:translateX(-50%) translateY(15px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+@media(max-width:600px){.grid{grid-template-columns:1fr}.tb{flex-direction:column}.btn{width:100%;justify-content:center}}
+</style>
+</head>
+<body>
+<header><h1>Booth 40 BLO Helper</h1><p>Thiruvalla (111) - Kerala Electoral Search</p></header>
+<div class="container">
+<div class="tb">
+<div class="sw"><input type="text" id="si" placeholder="🔍 Search name, house, serial, ID, mobile..." oninput="doFilter()"></div>
+<button class="menu-btn" onclick="togglePanel()" title="Menu">☰</button>
+</div>
+<div class="fb" id="fb"></div>
+<div class="ri" id="ri">Loading...</div>
+<div id="fuzzyHint" style="display:none;text-align:center;margin-bottom:8px;padding:8px;background:#fff8e1;border-radius:8px;font-size:12px;color:#e65100"></div>
+<div class="list" id="listView"></div>
+<div class="grid show" id="gridView"></div>
+</div>
+<!-- Slide Panel -->
+<div class="panel-bg" id="panelBg" onclick="togglePanel()"></div>
+<div class="panel" id="panel">
+<button class="close-p" onclick="togglePanel()">✕</button>
+<h3>⚙️ Tools & Options</h3>
+<label>📊 Sort By</label>
+<select id="sortSel" onchange="buildSubFilter();doFilter()">
+<option value="serial">Serial Number</option><option value="name">Voter Name (A-Z)</option><option value="house">House Name</option><option value="relative">Relative / Father</option>
+</select>
+<label>📍 Filter</label>
+<input id="subFilter" list="subFilterList" placeholder="Type or select to filter..." oninput="doFilter()" onfocus="this.value=''; doFilter()" style="width:100%;padding:12px;border:none;border-radius:12px;background:var(--bg);box-shadow:inset 0 2px 5px rgba(0,0,0,.05);margin-bottom:20px;font-size:15px;-webkit-appearance:none;font-family:inherit;">
+<datalist id="subFilterList"></datalist>
+<label>🎬 View Mode</label>
+<div class="pbtn">
+<button class="pb p-view" id="viewBtn" onclick="toggleView();togglePanel()"><span>📋</span><small id="viewLbl">Minimal</small></button>
+<button class="pb p-add" onclick="openAdd();togglePanel()"><span>➕</span><small>Add Voter</small></button>
+</div>
+<label>💾 Data / Backup</label>
+<div class="pbtn">
+<button class="pb" style="background:#107c41" onclick="exportCSV()"><span>📊</span><small>Excel</small></button>
+<button class="pb p-exp" onclick="exportData()"><span>📤</span><small>Sync</small></button>
+<button class="pb p-imp" onclick="document.getElementById('impF').click()"><span>📥</span><small>Restore</small></button>
+</div>
+<input type="file" id="impF" accept=".json" style="display:none" onchange="importData(event)">
+</div>
+<!-- Scroll Buttons -->
+<div class="scroll-btns">
+<button class="scroll-b" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="Scroll to top">▲</button>
+<button class="scroll-b" onclick="window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'})" title="Scroll to bottom">▼</button>
+</div>
+<!-- Add Modal -->
+<div class="mo-bg" id="addMo"><div class="mo">
+<h2 id="moT">➕ Add New Voter</h2>
+<label>Serial No.</label><input id="m_s"><label>Name (Malayalam)</label><input id="m_n" placeholder="പേര്"><label>Name (English)</label><input id="m_e"><label>Relative Name</label><input id="m_r"><label>House No.</label><input id="m_h"><label>House Name (Malayalam)</label><input id="m_hm" placeholder="വീട്ടുപേര്"><label>House Name (English)</label><input id="m_he"><label>Sex</label><select id="m_sx"><option value="പുരുഷൻ">പുരുഷൻ (Male)</option><option value="സ്ത്രീ">സ്ത്രീ (Female)</option></select><label>ID Card</label><input id="m_id" placeholder="SIR0000000">
+<div class="mb"><button class="mc" onclick="closeAdd()">Cancel</button><button class="ms" onclick="saveNew()">💾 Save</button></div>
+</div></div>
+<div class="toast" id="toast"></div>
+<button class="chat-btn" id="botBtn" onclick="openChat()" title="Ask Assistant" style="position:fixed;bottom:20px;left:20px;z-index:999;background:var(--bl);color:#fff;padding:15px;border-radius:50%;box-shadow:0 5px 15px rgba(0,0,0,0.3);cursor:pointer;font-size:24px;width:60px;height:60px;border:none;display:flex;align-items:center;justify-content:center;transition:0.3s">🤖</button>
+<div class="chat-ui" id="chatUi" style="display:none;position:fixed;bottom:90px;left:20px;width:320px;max-width:calc(100vw - 40px);height:400px;background:var(--bg);border-radius:20px;box-shadow:0 10px 30px rgba(0,0,0,0.3);z-index:1000;flex-direction:column;overflow:hidden;border:1px solid rgba(0,0,0,0.1)">
+ <div style="background:var(--nv);padding:15px;color:#fff;display:flex;justify-content:space-between;align-items:center;font-weight:bold"><span>🤖 Booth Assistant</span><button onclick="closeChat()" style="background:none;border:none;color:#fff;font-size:20px;cursor:pointer">✖</button></div>
+ <div id="chatBody" style="flex:1;padding:15px;overflow-y:auto;display:flex;flex-direction:column;gap:10px;background:#f0f4f8">
+  <div style="padding:10px 15px;border-radius:15px;max-width:85%;font-size:14px;line-height:1.4;align-self:flex-start;background:#fff;color:#333;border-bottom-left-radius:5px;box-shadow:0 2px 5px rgba(0,0,0,0.05)">Hello! I can help you search, sort, or find statistics.<br><br>Ask me anything like:<br>• "How many male voters"<br>• "Sort by house name"<br>• "Find John"</div>
+ </div>
+ <form onsubmit="event.preventDefault(); sendChat()" style="padding:10px;background:#fff;display:flex;gap:6px;border-top:1px solid rgba(0,0,0,0.05);align-items:center">
+  <button type="button" id="micBtn" onclick="toggleMic()" style="background:#f0f2f5;color:var(--tx);border:none;border-radius:50%;width:42px;height:42px;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;transition:0.3s;flex-shrink:0" title="Voice Input">🎤</button>
+  <input type="text" id="chatInp" autocomplete="off" placeholder="Ask something..." style="flex:1;padding:12px;border:1px solid #ddd;border-radius:20px;outline:none;font-family:inherit">
+  <button type="submit" style="background:var(--bl);color:#fff;border:none;padding:10px 15px;border-radius:20px;cursor:pointer;font-weight:bold">Send</button>
+ </form>
+</div>
+<script src="voters_data.js"></script>
+<script>
+let voters=[],custom=[],af='all',viewMode='detailed',expandedSerial=null;
+
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.className='toast show';setTimeout(()=>t.className='toast',2500);}
+function parseCSV(t){const ls=t.trim().split('\n'),r=[];for(let i=1;i<ls.length;i++){const l=ls[i].trim();if(!l)continue;const p=l.split(',');if(p.length<9)continue;r.push({serial:p[0],name:p[1]||'',ename:p[2]||'',relative:p[3]||'',houseNo:p[4]||'',houseName:p[5]||'',ehouseName:p[6]||'',sex:p[7]||'',idCard:p[8]||'',status:p[9]||'Active',src:'csv'});}return r;}
+function ld(s){try{return JSON.parse(localStorage.getItem('v_'+s))||{};}catch(e){return{};}}
+function all(){return [...voters,...custom];}
+function gm(s){return(ld(s).mark)||'active';}
+
+function togglePanel(){
+ const p=document.getElementById('panel'),bg=document.getElementById('panelBg');
+ const isOpen=p.classList.contains('show');
+ p.classList.toggle('show');bg.classList.toggle('show');
+}
+
+function toggleView(){
+ viewMode=viewMode==='detailed'?'minimal':'detailed';
+ const lbl=document.getElementById('viewLbl');
+ if(lbl)lbl.textContent=viewMode==='detailed'?'Minimal':'Detailed';
+ doFilter();
+}
+
+function updateFB(){
+ const a=all(),c={all:0,active:0,death:0,shifted:0,removed:0,new:0};
+ a.forEach(v=>{c.all++;const m=gm(v.serial);if(v.src==='custom')c.new++;if(m==='death')c.death++;else if(m==='shifted')c.shifted++;else if(m==='removed')c.removed++;else c.active++;});
+ document.getElementById('fb').innerHTML=[
+  {i:'all',l:'All',n:c.all},{i:'active',l:'✅ Active',n:c.active},{i:'death',l:'🕯️ Death',n:c.death},
+  {i:'shifted',l:'🚚 Shifted',n:c.shifted},{i:'removed',l:'❌ Removed',n:c.removed},{i:'new',l:'🆕 New',n:c.new}
+ ].map(f=>`<div class="fc ${af===f.i?'on':''}" onclick="af='${f.i}';doFilter()">${f.l}<span class="ct">${f.n}</span></div>`).join('');
+}
+
+/* ── MINIMAL LIST VIEW ── */
+function renderList(list){
+ const el=document.getElementById('listView');
+ el.innerHTML=list.map(v=>{
+  const s=ld(v.serial),mk=gm(v.serial),isDel=v.status==='Deleted';
+  let cls='lrow';if(mk==='death')cls+=' dead';else if(mk==='shifted')cls+=' shifted';else if(mk==='removed')cls+=' removed';
+  let badge='';if(mk==='death')badge='<span class="mbg" style="background:var(--rd)">🕯️</span>';
+  else if(mk==='shifted')badge='<span class="mbg" style="background:var(--or)">🚚</span>';
+  else if(mk==='removed')badge='<span class="mbg" style="background:var(--gr)">❌</span>';
+  else if(v.src==='custom')badge='<span class="mbg" style="background:var(--gn)">🆕</span>';
+  else if(isDel)badge='<span class="mbg" style="background:var(--rd)">DEL</span>';
+  return `<div class="${cls}" onclick="expandedSerial=expandedSerial==='${v.serial}'?null:'${v.serial}';doFilter()">
+<span class="sn">${v.serial}</span>
+<div class="nm">
+<div style="display:flex;align-items:center;gap:6px">${v.name} <small style="color:var(--mt)">${v.ename}</small>${badge}</div>
+<div class="hn">${v.ehouseName||v.houseName}</div>
+</div>
+<button class="exp-btn" title="Expand">${expandedSerial===v.serial?'−':'+'}</button>
+</div>${expandedSerial===v.serial?renderDetail(v,s):''}`;
+ }).join('');
+}
+
+/* ── DETAILED GRID VIEW ── */
+function renderGrid(list){
+ const el=document.getElementById('gridView');
+ if(!list.length){el.innerHTML='<p style="text-align:center;grid-column:1/-1;color:#aaa;padding:40px">No voters found</p>';return;}
+ el.innerHTML=list.map(v=>{
+  const s=ld(v.serial),mk=gm(v.serial),isDel=v.status==='Deleted',isNew=v.src==='custom';
+  const hasPh=!!(s.phone&&s.phone.length===10),hasLoc=!!(s.loc);
+  let cc='card';if(mk==='death')cc+=' dead';else if(mk==='shifted')cc+=' shifted';else if(mk==='removed')cc+=' removed';else if(isDel)cc+=' deleted';
+  let wm=mk==='death'?'DEATH':mk==='shifted'?'SHIFTED':mk==='removed'?'REMOVED':isDel?'DELETED':'';
+  let sb='';if(mk!=='active')sb=`<span class="sb" style="background:${mk==='death'?'var(--rd)':mk==='shifted'?'var(--or)':'var(--gr)'}">${mk.toUpperCase()}</span>`;
+  else if(isNew)sb='<span class="sb" style="background:var(--gn)">NEW</span>';
+  else if(isDel)sb='<span class="sb" style="background:var(--rd)">DELETED</span>';
+  const isExp=expandedSerial===v.serial;
+  return `<div class="${cc}" onclick="expandedSerial=expandedSerial==='${v.serial}'?null:'${v.serial}';doFilter()">
+${wm?'<div class="wm">'+wm+'</div>':''}
+<div class="hdr"><div><h2>${v.name}</h2><h3>${v.ename}</h3></div><div><span class="sn">#${v.serial}</span>${sb}</div></div>
+<div class="info"><b>${v.houseNo}</b> ${v.houseName} (${v.ehouseName})<br>Relative: ${v.relative} · Sex: ${v.sex}</div>
+<span class="id">${v.idCard}</span>
+<div class="qb">
+<a class="qi qi-call ${hasPh?'on':'off'}" href="${hasPh?'tel:'+s.phone:'#'}" onclick="event.stopPropagation();${hasPh?'':'toast(\"Save phone first\");return false'}" title="Call">📞</a>
+<a class="qi qi-wa ${hasPh?'on':'off'}" href="#" onclick="event.stopPropagation();openWA('${v.serial}','${v.ename.replace(/'/g,'')}');return false" title="WhatsApp">💬</a>
+<button class="qi qi-gps on" onclick="event.stopPropagation();getGPS('${v.serial}')" title="Get GPS">📡</button>
+<a class="qi qi-map ${hasLoc?'on':'off'}" id="map_${v.serial}" href="${hasLoc?s.loc:'#'}" target="_blank" onclick="event.stopPropagation();${hasLoc?'':'toast(\"Save location first\");return false'}" title="Open Map">📍</a>
+<button class="qi qi-edit on" onclick="event.stopPropagation();expandedSerial='${v.serial}';doFilter()" title="Edit">✏️</button>
+</div>
+${isExp?renderDetail(v,s):''}
+</div>`;
+ }).join('');
+}
+
+/* ── SHARED DETAIL PANEL ── */
+function renderDetail(v,s){
+ const mk=s.mark||'active',hasPh=!!(s.phone&&s.phone.length===10),hasLoc=!!(s.loc);
+ return `<div class="det show" onclick="event.stopPropagation()">
+<div class="irow"><input type="tel" id="ph_${v.serial}" placeholder="📞 10-digit Mobile" value="${s.phone||''}" maxlength="10" oninput="valPh(this)"><button class="fbtn" onclick="document.getElementById('ph_${v.serial}').select()">📱</button></div>
+<div class="phh" id="phh_${v.serial}"></div>
+<input id="addr_${v.serial}" placeholder="📝 Notes / Address" value="${s.addr||''}">
+<div class="irow"><input type="url" id="loc_${v.serial}" placeholder="📍 Paste Google Maps link" value="${s.loc||''}"><button class="fbtn" onclick="getGPS('${v.serial}')">📡 GPS</button></div>
+<div class="loc-st ${hasLoc?'on':''}" id="ls_${v.serial}">${hasLoc?'✅ Location saved':''}</div>
+<select id="mk_${v.serial}"><option value="active" ${mk==='active'?'selected':''}>✅ Active</option><option value="death" ${mk==='death'?'selected':''}>🕯️ Death</option><option value="shifted" ${mk==='shifted'?'selected':''}>🚚 Shifted</option><option value="removed" ${mk==='removed'?'selected':''}>❌ Removed</option></select>
+<div class="act">
+<a class="ac ${hasPh?'':'off'}" href="${hasPh?'tel:'+s.phone:'#'}">📞 Call</a>
+<a class="aw ${hasPh?'':'off'}" href="#" onclick="openWA('${v.serial}','${v.ename.replace(/'/g,'')}');return false">💬 WhatsApp</a>
+<a class="am ${hasLoc?'':'off'}" href="${hasLoc?s.loc:'#'}" target="_blank">📍 Open Map</a>
+</div>
+<button class="sv" onclick="saveV('${v.serial}')">💾 Save Info</button>
+</div>`;
+}
+
+/* ── CORE FUNCTIONS ── */
+function valPh(inp){
+ inp.value=inp.value.replace(/[^0-9]/g,'').slice(0,10);
+ const v=inp.value,h=inp.parentElement.nextElementSibling;
+ if(!v){inp.style.borderColor='#e0e0e0';if(h)h.style.display='none';return;}
+ if(v.length<10){inp.style.borderColor='var(--rd)';if(h){h.style.display='block';h.textContent='⚠️ '+v.length+'/10 digits';h.style.color='var(--rd)';}}
+ else if(!/^[6-9]/.test(v)){inp.style.borderColor='var(--rd)';if(h){h.style.display='block';h.textContent='❌ Must start with 6-9';h.style.color='var(--rd)';}}
+ else{inp.style.borderColor='var(--gn)';if(h){h.style.display='block';h.textContent='✅ Valid';h.style.color='var(--gn)';}}
+}
+function saveV(serial){
+ const ph=(document.getElementById('ph_'+serial)||{}).value||'';
+ const cl=ph.replace(/[^0-9]/g,'').slice(0,10);
+ if(cl&&!/^[6-9]\d{9}$/.test(cl)){toast('❌ Invalid phone! 10 digits starting with 6-9');return;}
+ const addr=(document.getElementById('addr_'+serial)||{}).value||'';
+ const loc=(document.getElementById('loc_'+serial)||{}).value||'';
+ const mk=(document.getElementById('mk_'+serial)||{}).value||'active';
+ localStorage.setItem('v_'+serial,JSON.stringify({phone:cl,addr:addr.trim(),loc:loc.trim(),mark:mk}));
+ toast('✅ Saved #'+serial);doFilter();
+}
+function getGPS(serial){
+ const st=document.getElementById('ls_'+serial),inp=document.getElementById('loc_'+serial);
+ if(!navigator.geolocation){toast('GPS not supported!');return;}
+ if(st){st.className='loc-st on';st.textContent='⏳ Getting GPS...';st.style.color='var(--or)';}
+ navigator.geolocation.getCurrentPosition(p=>{
+  const lat=p.coords.latitude,lng=p.coords.longitude,a=Math.round(p.coords.accuracy);
+  const lk='https://www.google.com/maps?q='+lat+','+lng;if(inp)inp.value=lk;
+  if(st){st.className='loc-st on';st.textContent='✅ '+lat.toFixed(5)+','+lng.toFixed(5)+' (~'+a+'m)';st.style.color='var(--gn)';}
+  // auto-save
+  const ph=(document.getElementById('ph_'+serial)||{}).value||'';
+  const addr=(document.getElementById('addr_'+serial)||{}).value||'';
+  const mk=(document.getElementById('mk_'+serial)||{}).value||'active';
+  localStorage.setItem('v_'+serial,JSON.stringify({phone:ph.replace(/[^0-9]/g,'').slice(0,10),addr:addr.trim(),loc:lk,mark:mk}));
+  toast('📍 Location saved!');
+ },e=>{if(st){st.className='loc-st on';st.textContent='❌ '+(e.code===1?'Permission denied':'GPS error');st.style.color='var(--rd)';}
+ },{enableHighAccuracy:true,timeout:15000,maximumAge:0});
+}
+function openWA(serial){
+ const s=ld(serial); const ph=s.phone||'';
+ if(!ph||ph.length!==10){toast('❌ Save a valid 10-digit number first!');return;}
+ const v=all().find(x=>x.serial===serial)||{};
+ const msg=`Hello *${v.ename||'Voter'}*, greetings from Booth Level Officer, Booth 40! 👋\n\n🗳️ *Legislative Assembly Kerala Election 2026*\n\nHere are your voter details:\n🔸 *Serial Number:* ${v.serial||serial}\n🔸 *Voter Name:* ${v.name||''}\n🔸 *House Name:* ${v.houseName||''}\n🔸 *Booth:* 40\n🔸 *Polling Station:* CMS HSS Mallappally (വടക്കേ കെട്ടിടം)\n\nPlease make sure to cast your valuable vote!`;
+ window.open('https://wa.me/91'+ph+'?text='+encodeURIComponent(msg),'_blank');
+}
+function exportCSV(){
+ const headers=['Serial','Name (Malayalam)','English Name','Relative Name','House No','House Name (Malayalam)','English House Name','Sex','ID Card','Status','Phone'];
+ const rows=[headers];
+ all().forEach(v=>{
+  const s=ld(v.serial);
+  const mk=gm(v.serial);
+  const st=v.src==='custom'?'Custom':(mk==='active'?v.status:mk.toUpperCase());
+  const row=[v.serial,v.name,v.ename,v.relative,v.houseNo,v.houseName,v.ehouseName,v.sex,v.idCard,st,s.phone||''];
+  rows.push(row.map(val=>{
+   let str=(val||'').toString().replace(/"/g,'""');
+   if(str.includes(',')||str.includes('\n')||str.includes('"'))return '"'+str+'"';
+   return str;
+  }).join(','));
+ });
+ const blob=new Blob(['\uFEFF'+rows.join('\n')],{type:'text/csv;charset=utf-8;'});
+ const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+ a.download='Booth40_Voters_'+new Date().toISOString().slice(0,10)+'.csv';
+ a.click();toast('📊 Excel file exported!');
+}
+function exportData(){
+ const d={version:2,date:new Date().toISOString(),saved:{},custom:custom};
+ Object.keys(localStorage).forEach(k=>{if(k.startsWith('v_')){try{d.saved[k]=JSON.parse(localStorage.getItem(k));}catch(e){}}});
+ const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(d,null,2)],{type:'application/json'}));
+ a.download='Booth40_Backup_'+new Date().toISOString().slice(0,10)+'.json';a.click();toast('📤 Backup exported!');
+}
+function importData(ev){
+ const f=ev.target.files[0];if(!f)return;const r=new FileReader();
+ r.onload=function(e){try{const d=JSON.parse(e.target.result);let c=0;
+  if(d.saved||d.savedVoters){const sv=d.saved||d.savedVoters;Object.keys(sv).forEach(k=>{const key=k.startsWith('v_')?k:'v_'+k.replace('voter_','');localStorage.setItem(key,JSON.stringify(sv[k]));c++;});}
+  if(d.custom||d.customVoters){(d.custom||d.customVoters).forEach(cv=>{if(!custom.find(x=>x.serial===cv.serial))custom.push(cv);});localStorage.setItem('custom_voters',JSON.stringify(custom));}
+  toast('📥 Imported '+c+' records');doFilter();
+ }catch(err){toast('❌ Invalid file');}};r.readAsText(f);ev.target.value='';
+}
+function openAdd(){
+ document.getElementById('addMo').className='mo-bg show';
+ document.getElementById('m_s').value=Math.max(...all().map(v=>parseInt(v.serial)||0))+1;
+ ['m_n','m_e','m_r','m_h','m_hm','m_he','m_id'].forEach(i=>document.getElementById(i).value='');
+}
+function closeAdd(){document.getElementById('addMo').className='mo-bg';}
+function saveNew(){
+ const s=document.getElementById('m_s').value.trim();if(!s){toast('Serial required');return;}
+ if(all().find(v=>v.serial===s)){toast('Serial #'+s+' exists!');return;}
+ custom.push({serial:s,name:document.getElementById('m_n').value.trim(),ename:document.getElementById('m_e').value.trim(),
+  relative:document.getElementById('m_r').value.trim(),houseNo:document.getElementById('m_h').value.trim(),
+  houseName:document.getElementById('m_hm').value.trim(),ehouseName:document.getElementById('m_he').value.trim(),
+  sex:document.getElementById('m_sx').value,idCard:document.getElementById('m_id').value.trim(),status:'Active',src:'custom'});
+ localStorage.setItem('custom_voters',JSON.stringify(custom));closeAdd();toast('🆕 Added #'+s);doFilter();
+}
+/* Fuzzy: bigram similarity (Dice coefficient) */
+function bigrams(s){const b=new Set();for(let i=0;i<s.length-1;i++)b.add(s.slice(i,i+2));return b;}
+function fuzzyScore(a,b){
+ if(!a||!b)return 0;a=a.toLowerCase().replace(/\s/g,'');b=b.toLowerCase().replace(/\s/g,'');
+ if(a===b)return 1;if(b.includes(a)||a.includes(b))return 0.9;
+ const ba=bigrams(a),bb=bigrams(b);let match=0;
+ ba.forEach(x=>{if(bb.has(x))match++;});
+ return ba.size+bb.size>0?(2*match)/(ba.size+bb.size):0;
+}
+function exactMatch(v,q){
+ const s=ld(v.serial);
+ return v.name.toLowerCase().includes(q)||v.ename.toLowerCase().includes(q)||v.houseName.toLowerCase().includes(q)||
+ v.ehouseName.toLowerCase().includes(q)||v.serial===q||v.serial.startsWith(q)||v.idCard.toLowerCase().includes(q)||
+ v.relative.toLowerCase().includes(q)||v.houseNo.includes(q)||(s.phone&&s.phone.includes(q))||(s.addr&&s.addr.toLowerCase().includes(q));
+}
+function bestFuzzy(v,q){
+ return Math.max(fuzzyScore(q,v.name),fuzzyScore(q,v.ename),fuzzyScore(q,v.houseName),
+  fuzzyScore(q,v.ehouseName),fuzzyScore(q,v.relative),fuzzyScore(q,v.idCard));
+}
+function buildSubFilter(){
+ const by=document.getElementById('sortSel').value,sfList=document.getElementById('subFilterList'),inp=document.getElementById('subFilter');
+ const a=all(); inp.value='';
+ let opts=[];
+ if(by==='house'){
+  const m={};a.forEach(v=>{const h=v.ehouseName||v.houseName;if(h)m[h]=(m[h]||0)+1;});
+  Object.keys(m).sort().forEach(h=>opts.push({v:h,l:h+' ('+m[h]+')'}));
+ } else if(by==='relative'){
+  const m={};a.forEach(v=>{const r=v.relative;if(r)m[r]=(m[r]||0)+1;});
+  Object.keys(m).sort().forEach(r=>opts.push({v:r,l:r+' ('+m[r]+')'}));
+ } else if(by==='name'){
+  const letters=new Set();a.forEach(v=>{const c=(v.ename||v.name||'').charAt(0).toUpperCase();if(c)letters.add(c);});
+  [...letters].sort().forEach(l=>opts.push({v:l,l:'Letter: '+l}));
+ }
+ sfList.innerHTML=opts.map(o=>'<option value="'+o.v+'">'+o.l+'</option>').join('');
+}
+function sortList(list){
+ const by=document.getElementById('sortSel').value;
+ return list.sort((a,b)=>{
+  if(by==='name')return(a.ename||a.name).localeCompare(b.ename||b.name);
+  if(by==='house')return(a.ehouseName||a.houseName).localeCompare(b.ehouseName||b.houseName);
+  if(by==='relative')return(a.relative||'').localeCompare(b.relative||'');
+  return(parseInt(a.serial)||0)-(parseInt(b.serial)||0);
+ });
+}
+function doFilter(){
+ const q=document.getElementById('si').value.trim().toLowerCase();
+ const by=document.getElementById('sortSel').value;
+ const sf=document.getElementById('subFilter').value;
+ let list=all(),fuzzyList=[],fuzzyHint=document.getElementById('fuzzyHint');
+ if(af!=='all'){if(af==='new')list=list.filter(v=>v.src==='custom');else list=list.filter(v=>gm(v.serial)===af);}
+ // Apply sub-filter
+ if(sf){
+  const sfc=sf.toLowerCase();
+  if(by==='house')list=list.filter(v=>(((v.ehouseName||'')+' '+(v.houseName||'')).toLowerCase().includes(sfc)));
+  else if(by==='relative')list=list.filter(v=>(v.relative||'').toLowerCase().includes(sfc));
+  else if(by==='name')list=list.filter(v=>(v.ename||v.name||'').charAt(0).toUpperCase()===sf.toUpperCase());
+ }
+ fuzzyHint.style.display='none';
+ if(q&&q.length>=2){
+  const exact=list.filter(v=>exactMatch(v,q));
+  if(exact.length>0){
+   const exactIds=new Set(exact.map(v=>v.serial));
+   list=exact;
+   // Also find fuzzy matches from full list, not in exact
+   if(exact.length<10){
+    fuzzyList=all().filter(v=>!exactIds.has(v.serial)&&bestFuzzy(v,q)>0.55).map(v=>({...v,_score:bestFuzzy(v,q)}));
+    fuzzyList.sort((a,b)=>b._score-a._score);
+    fuzzyList=fuzzyList.slice(0,10);
+   }
+  } else {
+   // No exact match - show fuzzy results
+   fuzzyList=list.map(v=>({...v,_score:bestFuzzy(v,q)})).filter(v=>v._score>0.45);
+   fuzzyList.sort((a,b)=>b._score-a._score);
+   fuzzyList=fuzzyList.slice(0,30);
+   list=[];
+  }
+ } else if(q&&q.length===1){
+  list=list.filter(v=>exactMatch(v,q));
+ }
+ list=sortList(list);
+ const total=list.length+fuzzyList.length;
+ let info='Showing '+list.length+' of '+all().length+' voters';
+ if(fuzzyList.length>0){
+  if(list.length===0)info='No exact match — showing '+fuzzyList.length+' probable matches';
+  else info+=' + '+fuzzyList.length+' probable';
+  fuzzyHint.style.display='block';
+  fuzzyHint.innerHTML='💡 <b>Probable matches</b> (similar spelling): '+fuzzyList.map(v=>'<span style="cursor:pointer;text-decoration:underline;margin:0 4px" onclick="document.getElementById(\'si\').value=\''+v.ename.replace(/'/g,'')+'\';doFilter()">'+v.ename+' (#'+v.serial+')</span>').join(', ');
+ }
+ document.getElementById('ri').textContent=info;
+ updateFB();
+ const combined=list.concat(fuzzyList);
+ if(viewMode==='minimal'){document.getElementById('listView').className='list show';document.getElementById('gridView').className='grid';renderList(combined);}
+ else{document.getElementById('gridView').className='grid show';document.getElementById('listView').className='list';renderGrid(combined);}
+}
+/* ── NLP CHATBOT ── */
+let rec=null;
+function toggleMic(){
+ const mic=document.getElementById('micBtn');
+ if(rec){ rec.stop(); return; }
+ if(!('webkitSpeechRecognition' in window)){ toast('Voice input not supported in your browser.'); return; }
+ rec = new webkitSpeechRecognition();
+ rec.lang = 'en-IN';
+ rec.interimResults = false;
+ rec.onstart = function(){ mic.style.background='var(--rd)'; mic.style.color='#fff'; mic.textContent='⏹️'; document.getElementById('chatInp').placeholder='Listening...'; }
+ rec.onresult = function(e){ document.getElementById('chatInp').value = e.results[0][0].transcript; setTimeout(()=>sendChat(),200); }
+ rec.onerror = function(e){ toast('Mic error: '+e.error); }
+ rec.onend = function(){ mic.style.background='#f0f2f5'; mic.style.color='var(--tx)'; mic.textContent='🎤'; document.getElementById('chatInp').placeholder='Ask something...'; rec=null; }
+ rec.start();
+}
+function openChat(){ document.getElementById('chatUi').style.display='flex'; document.getElementById('botBtn').style.display='none'; document.getElementById('chatInp').focus(); }
+function closeChat(){ document.getElementById('chatUi').style.display='none'; document.getElementById('botBtn').style.display='flex'; }
+function sendChat(){
+ const inp=document.getElementById('chatInp'); const txt=inp.value.trim(); if(!txt)return;
+ inp.value=''; appendMsg('usr', txt);
+ setTimeout(()=>processChat(txt.toLowerCase()), 300);
+}
+function appendMsg(type, txt){
+ const b=document.getElementById('chatBody');
+ const st=type==='usr'?'align-self:flex-end;background:var(--nv);color:#fff;border-bottom-right-radius:5px':'align-self:flex-start;background:#fff;color:#333;border-bottom-left-radius:5px;box-shadow:0 2px 5px rgba(0,0,0,0.05)';
+ b.innerHTML+=`<div style="padding:10px 15px;border-radius:15px;max-width:85%;font-size:14px;line-height:1.4;margin-top:4px;${st}">${txt}</div>`;
+ b.scrollTop=b.scrollHeight;
+}
+function processChat(q){
+ let ans="I'm not exactly sure what you mean. Try asking me for 'active voters', 'sort by house', or 'search for [name]'.";
+ let handled=false;
+ if(q.includes('how many')||q.includes('total')||q.includes('count')||q.includes('how much')||q.includes('sum')){
+  if(q.includes('male')||q.includes('പുരുഷൻ')){ans=`There are <b>${all().filter(v=>v.sex==='പുരുഷൻ').length}</b> male voters.`;handled=true;}
+  else if(q.includes('female')||q.includes('സ്ത്രീ')){ans=`There are <b>${all().filter(v=>v.sex==='സ്ത്രീ').length}</b> female voters.`;handled=true;}
+  else if(q.includes('death')||q.includes('dead')){af='death';doFilter();ans=`There are <b>${all().filter(v=>gm(v.serial)==='death').length}</b> deceased voters. I've automatically filtered the list for you.`;handled=true;}
+  else if(q.includes('active')){ans=`There are <b>${all().filter(v=>gm(v.serial)==='active').length}</b> active records.`;handled=true;}
+  else {ans=`There are a total of <b>${all().length}</b> voters in this booth.`;handled=true;}
+ }
+ else if(q.includes('sort')){
+  if(q.includes('house')){document.getElementById('sortSel').value='house';buildSubFilter();doFilter();ans="Okay! I have sorted the voter list by 🏠 <b>House Name</b>.";handled=true;}
+  else if(q.includes('relative')||q.includes('father')){document.getElementById('sortSel').value='relative';buildSubFilter();doFilter();ans="Okay! I have sorted the list by <b>Relative Name</b>.";handled=true;}
+  else if(q.includes('name')||q.includes('alphabet')){document.getElementById('sortSel').value='name';buildSubFilter();doFilter();ans="Okay! I have sorted the list Alphabetically by <b>Name (A-Z)</b>.";handled=true;}
+  else if(q.includes('serial')){document.getElementById('sortSel').value='serial';buildSubFilter();doFilter();ans="Okay! I have sorted the list by <b>Serial Number</b>.";handled=true;}
+ }
+ else if(q.includes('find')||q.includes('search')||q.includes('who')){
+  let name=q.replace('find','').replace('search','').replace('for','').replace('who is','').replace('who knows','').replace('?','').trim();
+  if(name){
+   document.getElementById('si').value=name;af='all';
+   document.getElementById('sortSel').value='serial';buildSubFilter();doFilter();
+   ans=`Searching for <b>"${name}"</b>... I've dynamically updated your main list showing the matches!`;handled=true;
+  }
+ }
+ else if(q.includes('show')||q.includes('filter')){
+  if(q.includes('death')||q.includes('dead')){af='death';doFilter();ans="Filtered the background list to show Deceased voters.";handled=true;}
+  else if(q.includes('shifted')){af='shifted';doFilter();ans="Filtered the background list to show Shifted voters.";handled=true;}
+  else if(q.includes('removed')){af='removed';doFilter();ans="Filtered the background list to show Removed voters.";handled=true;}
+  else if(q.includes('active')){af='active';doFilter();ans="Filtered the background list back to Active voters.";handled=true;}
+  else if(q.includes('new')){af='new';doFilter();ans="Showing newly added custom voters.";handled=true;}
+ }
+ if(!handled){
+  document.getElementById('si').value=q;af='all';doFilter();
+  ans=`I triggered a search for <b>"${q}"</b> as a fallback. Take a look at the background list for the matches!`;
+ }
+ appendMsg('bot',ans);
+}
+// Init
+if(typeof rawCSVText!=='undefined')voters=parseCSV(rawCSVText);
+custom=JSON.parse(localStorage.getItem('custom_voters')||'[]');
+buildSubFilter();
+doFilter();
+if('serviceWorker' in navigator)navigator.serviceWorker.register('./sw.js').catch(e=>{});
+let dp;window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();dp=e;const b=document.createElement('button');b.textContent='📲 Install';b.style.cssText='position:fixed;bottom:20px;right:20px;z-index:9999;padding:12px 20px;background:var(--nv);color:#fff;border:none;border-radius:25px;font-size:14px;font-weight:bold;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.3);animation:bounce 2s infinite';b.onclick=()=>{dp.prompt();dp.userChoice.then(()=>{dp=null;b.remove();});};document.body.appendChild(b);});
+</script>
+</body>
+</html>
